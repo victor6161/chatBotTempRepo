@@ -72,10 +72,9 @@ import com.github.messenger4j.webhook.event.attachment.RichMediaAttachment;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
+
+import com.iba.chatbot.ui.session.UserSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -99,8 +98,7 @@ public class CallBackHandler {
 
     private final Messenger messenger;
 
-    private static boolean firstTime = true;
-
+    private Map<String, UserSession> userSessionMaps = new WeakHashMap<>();
     @Autowired
     public CallBackHandler(final Messenger messenger) {
         this.messenger = messenger;
@@ -122,7 +120,30 @@ public class CallBackHandler {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
         }
     }
+    private void initMenu() throws MessengerApiException, MessengerIOException {
+        final PostbackCallToAction callToMenu =
+                PostbackCallToAction.create(
+                        "Menu", "ACTION_MENU");
+        final PostbackCallToAction callToActionHelp =
+                PostbackCallToAction.create(
+                        "Help", "ACTION_HELP");
+        final PersistentMenu persistentMenu =
+                PersistentMenu.create(
+                        false,
+                        of(Arrays.asList(callToMenu, callToActionHelp)),
+                        LocalizedPersistentMenu.create(SupportedLocale.ru_RU, false, empty()));
 
+        final Greeting greeting =
+                Greeting.create(
+                        "Вас приветствует бот помощник!",
+                        LocalizedGreeting.create(SupportedLocale.ru_RU, "Timeless apparel for the masses."));
+
+        final MessengerSettings messengerSettings1 =
+                MessengerSettings.create(
+                        java.util.Optional.of(StartButton.create("Button pressed")), of(greeting), of(persistentMenu), empty(), empty(), empty(), empty());
+        this.messenger.updateSettings(messengerSettings1);
+
+    }
     /**
      * Callback endpoint responsible for processing the inbound messages and events.
      */
@@ -132,91 +153,25 @@ public class CallBackHandler {
 
         try
         {
-                /*final PostbackCallToAction callToActionAA =
-                        PostbackCallToAction.create("Pay Bill", "PAYBILL_PAYLOAD");
-                final PostbackCallToAction callToActionAB =
-                        PostbackCallToAction.create("History", "HISTORY_PAYLOAD");
-                final PostbackCallToAction callToActionAC =
-                        PostbackCallToAction.create("Contact Info", "CONTACT_INFO_PAYLOAD");
-
-                final NestedCallToAction callToActionA =
-                        NestedCallToAction.create(
-                                "My Account", Arrays.asList(callToActionAA, callToActionAB, callToActionAC));*/
-
-                final PostbackCallToAction callToActionMyFirstWorkingDay =
-                        PostbackCallToAction.create(
-                                "Мой первый рабочий день", "ACTION_MY_FIRST_WORKING_DAY");
-                final PostbackCallToAction callToActionIill =
-                        PostbackCallToAction.create(
-                                "Я заболел", "ACTION_I_ILL");
-                final PostbackCallToAction callToActionSport =
-                        PostbackCallToAction.create(
-                                "Занятие спортом", "ACTION_I_SPORT");
-
-             final PostbackCallToAction callToActionBrokenA =
-                        PostbackCallToAction.create("Стул", "PAYBILL_PAYLOAD");
-                final PostbackCallToAction callToActionBrokenB =
-                        PostbackCallToAction.create("Мышка", "HISTORY_PAYLOAD");
-                final PostbackCallToAction callToActionBrokenC =
-                        PostbackCallToAction.create("Наушники", "CONTACT_INFO_PAYLOAD");
-
-               /* final NestedCallToAction callToActionBroken =
-                        NestedCallToAction.create(
-                                "У меня что-то перестало работать", Arrays.asList(callToActionBrokenA, callToActionBrokenB, callToActionBrokenC));*/
-/*
-                final PostbackCallToAction callToActionNextHoliday =
-                        PostbackCallToAction.create(
-                                "Следующий праздник в IBA", "ACTION_I_ILL");
-
-                final PostbackCallToAction callToActionInstructionsA =
-                        PostbackCallToAction.create("Wi-fi", "PAYBILL_PAYLOAD");
-                final NestedCallToAction callToActioninstructions =
-                        NestedCallToAction.create(
-                                "Мне нужна инструкция", Arrays.asList(callToActionInstructionsA));
-
-                final PostbackCallToAction callToActionMessageToServiceMan =
-                        PostbackCallToAction.create(
-                                "Я хочу отправить сообщение", "ACTION_TO_SERVICEMAN");*/
-
-
-              /*  final UrlCallToAction callToActionB =
-                        UrlCallToAction.create(
-                                "Latest News",
-                                new URL("http://petershats.parseapp.com/hat-news"),
-                                of(WebviewHeightRatio.FULL),
-                                empty(),
-                                empty(),
-                                of(WebviewShareButtonState.SHOW));*/
-
-                final PersistentMenu persistentMenu =
-                        PersistentMenu.create(
-                                false,
-                                of(Arrays.asList(callToActionMyFirstWorkingDay, callToActionIill, callToActionSport
-                                        /*callToActionBroken, callToActionNextHoliday, callToActioninstructions, callToActionMessageToServiceMan*/)),
-                                LocalizedPersistentMenu.create(SupportedLocale.ru_RU, false, empty()));
-
-                final Greeting greeting =
-                        Greeting.create(
-                                "Вас приветствует бот помощник!",
-                                LocalizedGreeting.create(SupportedLocale.ru_RU, "Timeless apparel for the masses."));
-
-                final MessengerSettings messengerSettings1 =
-                        MessengerSettings.create(
-                                java.util.Optional.of(StartButton.create("Button pressed")), of(greeting), of(persistentMenu), empty(), empty(), empty(), empty());
-                messenger.updateSettings(messengerSettings1);
-
-
             this.messenger.onReceiveEvents(payload, of(signature), event -> {
-
+                if (userSessionMaps.get(event.senderId()) != null && userSessionMaps.get(event.senderId()).isMenuUpdateNeeded()) {
+                    try {
+                        initMenu();
+                    } catch (MessengerApiException e) {
+                        logger.warn("Processing of callback payload failed: {}", e.getMessage());
+                    } catch (MessengerIOException e) {
+                        logger.warn("Processing of callback payload failed: {}", e.getMessage());
+                    }
+                }
                 if (event.isTextMessageEvent()) {
                     handleTextMessageEvent(event.asTextMessageEvent());
-                } else if (event.isAttachmentMessageEvent()) {
+                }/* else if (event.isAttachmentMessageEvent()) {
                     handleAttachmentMessageEvent(event.asAttachmentMessageEvent());
                 } else if (event.isQuickReplyMessageEvent()) {
                     handleQuickReplyMessageEvent(event.asQuickReplyMessageEvent());
-                } else if (event.isPostbackEvent()) {
+                } */else if (event.isPostbackEvent()) {
                     handlePostbackEvent(event.asPostbackEvent());
-                } else if (event.isAccountLinkingEvent()) {
+                } /* else if (event.isAccountLinkingEvent()) {
                     handleAccountLinkingEvent(event.asAccountLinkingEvent());
                 } else if (event.isOptInEvent()) {
                     handleOptInEvent(event.asOptInEvent());
@@ -226,7 +181,7 @@ public class CallBackHandler {
                     handleMessageDeliveredEvent(event.asMessageDeliveredEvent());
                 } else if (event.isMessageReadEvent()) {
                     handleMessageReadEvent(event.asMessageReadEvent());
-                } else {
+                }*/ else {
                     handleFallbackEvent(event);
                 }
             });
@@ -235,14 +190,13 @@ public class CallBackHandler {
         }catch (MessengerVerificationException e) {
             logger.warn("Processing of callback payload failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        } catch (MessengerIOException e) {
-            logger.warn("Processing of callback payload failed: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        } /*catch (MessengerIOException e) {
+
         } catch (MessengerApiException e) {
             logger.warn("Processing of callb" +
                     "ack payload failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        } /*catch (MalformedURLException e) {
+        }*/ /*catch (MalformedURLException e) {
             logger.warn("Processing of callb" +
                     "ack payload failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
@@ -258,13 +212,17 @@ public class CallBackHandler {
         final Instant timestamp = event.timestamp();
 
         logger.info("Received message '{}' with text '{}' from user '{}' at '{}'", messageId, messageText, senderId, timestamp);
-
         try {
-            switch (messageText.toLowerCase()) {
+            if (userSessionMaps.get(senderId) == null ) {
+                switch (messageText) {
+                    case "Menu":
+                        sendUserMenu(senderId);
+                        break;
+
+                    /*
                 case "user":
                     sendUserDetails(senderId);
                     break;
-
                 case "image":
                     sendImageMessage(senderId);
                     break;
@@ -320,13 +278,48 @@ public class CallBackHandler {
                 case "account linking":
                     sendAccountLinking(senderId);
                     break;
-
-                default:
-                    sendTextMessage(senderId, messageText);
+                */
+               /* default:
+                    sendTextMessage(senderId, messageText);*/
+                }
+            } else if ("menu_item".equals(userSessionMaps.get(senderId).getStep())) {
+                switch (messageText) {
+                    case "First working day":
+                        sendTextMessageWithType(senderId, "Text For First Working Day", "first_working_day_type");
+                        break;
+                    case "Sport":
+                        sendTextMessageWithType(senderId, "list of building and season ticket", "sport_type");
+                        break;
+                    case "Facilities":
+                        sendTextMessageWithType(senderId, "who is responsible for changing tables, chairs and so on", "facilites_type");
+                        break;
+                    case "Application":
+                        sendTextMessageWithType(senderId, "Please, Write down a organization for you application ", "application_type");
+                        break;
+                    case "Instructions":
+                        sendTextMessageWithType(senderId, "What instructions do you need ? examples 'Wi-fi'", "instructions_type");
+                        break;
+                }
+            } else if ("review_abuse".equals(userSessionMaps.get(senderId).getStep())) {
+                sendAbuseMessage(senderId, "Your abuse is received.");
             }
-        } catch (MessengerApiException | MessengerIOException | MalformedURLException e) {
+        } catch (MessengerApiException | MessengerIOException /*| MalformedURLException */e) {
             handleSendException(e);
         }
+    }
+
+    private void sendUserMenu(String recipientId) throws MessengerApiException, MessengerIOException {
+        //final UserProfile userProfile = this.messenger.queryUserProfile(recipientId);
+        final UserProfile userProfile = this.messenger.queryUserProfile(recipientId);
+        userSessionMaps.put(recipientId, new UserSession("menu_item", userProfile));
+        sendTextMessage(recipientId, "It's menu of flow chatbot. Please enter what help do you need:\n " +
+                "'First working day'\n " +
+                "'Health care'\n " +
+                "'Sport'\n " +
+                "'Facilities'\n" +
+                "'Application'\n +" +
+                "'Instructions'\n");
+        logger.info("Chat bot menu has sent");
     }
 
     private void sendUserDetails(String recipientId) throws MessengerApiException, MessengerIOException {
@@ -519,35 +512,25 @@ public class CallBackHandler {
         final Instant timestamp = event.timestamp();
         logger.debug("timestamp: {}", timestamp);
         logger.info("Received postback for user '{}' and page '{}' with payload '{}' at '{}'", senderId, senderId, payload, timestamp);
-
-
-
-        final PostbackButton buttonB1 = PostbackButton.create("Start Chatting", "USER_DEFINED_PAYLOAD");
-        final PostbackButton buttonB2 = PostbackButton.create("Start Chatting", "USER_DEFINED_PAYLOAD");
-        final PostbackButton buttonB3 = PostbackButton.create("Start Chatting", "USER_DEFINED_PAYLOAD");
-     /*   final PostbackButton buttonB4 = PostbackButton.create("Start Chatting", "USER_DEFINED_PAYLOAD");*/
-
-        final List<Button> buttons = Arrays.asList(buttonB1, buttonB2, buttonB3);
-        final ButtonTemplate buttonTemplate =
-                ButtonTemplate.create("What do you want to do next?", buttons);
-
-        final TemplateMessage templateMessage = TemplateMessage.create(buttonTemplate);
-        final MessagePayload payload1 =
-                MessagePayload.create(senderId, MessagingType.RESPONSE, templateMessage);
-
-        try {
-            messenger.send(payload1);
-        } catch (MessengerApiException e) {
-            e.printStackTrace();
-        } catch (MessengerIOException e) {
-            e.printStackTrace();
+        if("review".equals(userSessionMaps.get(senderId).getStep())) {
+            switch (payload) {
+                case "useful":
+                    sendEndMessage(senderId, "great thanks a lot");
+                    break;
+                case "useless":
+                    sendTextMessage(senderId, "please, type a message to me");
+                    break;
+            }
         }
 
 
-        final PostbackButton buttonB11 = PostbackButton.create("Start Chatting", "USER_DEFINED_PAYLOAD");
+
+
+
+     /*   final PostbackButton buttonB11 = PostbackButton.create("Start Chatting", "USER_DEFINED_PAYLOAD");
         final PostbackButton buttonB21 = PostbackButton.create("Start Chatting", "USER_DEFINED_PAYLOAD");
         final PostbackButton buttonB31 = PostbackButton.create("Start Chatting", "USER_DEFINED_PAYLOAD");
-        /*   final PostbackButton buttonB4 = PostbackButton.create("Start Chatting", "USER_DEFINED_PAYLOAD");*/
+        *//*   final PostbackButton buttonB4 = PostbackButton.create("Start Chatting", "USER_DEFINED_PAYLOAD");*//*
 
         final List<Button> buttons1 = Arrays.asList(buttonB1, buttonB2, buttonB3);
         final ButtonTemplate buttonTemplate1 =
@@ -563,7 +546,7 @@ public class CallBackHandler {
             e.printStackTrace();
         } catch (MessengerIOException e) {
             e.printStackTrace();
-        }
+        }*/
        // sendTextMessage(senderId, "Postback event tapped");
     }
 
@@ -643,7 +626,70 @@ public class CallBackHandler {
         logger.info("Received unsupported message from user '{}'", senderId);
     }
 
-    private void    sendTextMessage(String recipientId, String text) {
+    private void sendTextMessageWithType(String recipientId, String text, String type) {
+        try {
+            final IdRecipient recipient = IdRecipient.create(recipientId);
+            final NotificationType notificationType = NotificationType.REGULAR;
+            final String metadata = "DEVELOPER_DEFINED_METADATA";
+
+            final TextMessage textMessage = TextMessage.create(text, empty(), of(metadata));
+            final MessagePayload messagePayload = MessagePayload.create(recipient, MessagingType.RESPONSE, textMessage,
+                    of(notificationType), empty());
+            this.messenger.send(messagePayload);
+
+            userSessionMaps.get(recipientId).setType(type);
+            userSessionMaps.get(recipientId).setStep("review");
+
+            final PostbackButton buttonB1 = PostbackButton.create("useful", "useful");
+            final PostbackButton buttonB2 = PostbackButton.create("useless", "useless");
+
+            final List<Button> buttons = Arrays.asList(buttonB1, buttonB2);
+            final ButtonTemplate buttonTemplate =
+                    ButtonTemplate.create("Is this tip usefull or useless?", buttons);
+
+            final TemplateMessage templateMessage = TemplateMessage.create(buttonTemplate);
+            final MessagePayload payload1 =
+                    MessagePayload.create(recipientId, MessagingType.RESPONSE, templateMessage);
+            messenger.send(payload1);
+        } catch (MessengerApiException | MessengerIOException e) {
+            handleSendException(e);
+        }
+    }
+
+    private void  sendEndMessage(String recipientId, String text) {
+        try {
+            userSessionMaps.get(recipientId).setStep("0");
+            final IdRecipient recipient = IdRecipient.create(recipientId);
+            final NotificationType notificationType = NotificationType.REGULAR;
+            final String metadata = "DEVELOPER_DEFINED_METADATA";
+
+            final TextMessage textMessage = TextMessage.create(text, empty(), of(metadata));
+            final MessagePayload messagePayload = MessagePayload.create(recipient, MessagingType.RESPONSE, textMessage,
+                    of(notificationType), empty());
+            this.messenger.send(messagePayload);
+        } catch (MessengerApiException | MessengerIOException e) {
+            handleSendException(e);
+        }
+    }
+
+    private void  sendAbuseMessage(String recipientId, String text) {
+        try {
+            userSessionMaps.get(recipientId).setStep("0");
+            final IdRecipient recipient = IdRecipient.create(recipientId);
+            final NotificationType notificationType = NotificationType.REGULAR;
+            final String metadata = "DEVELOPER_DEFINED_METADATA";
+
+            final TextMessage textMessage = TextMessage.create(text, empty(), of(metadata));
+            final MessagePayload messagePayload = MessagePayload.create(recipient, MessagingType.RESPONSE, textMessage,
+                    of(notificationType), empty());
+            this.messenger.send(messagePayload);
+        } catch (MessengerApiException | MessengerIOException e) {
+            handleSendException(e);
+        }
+    }
+
+
+    private void  sendTextMessage(String recipientId, String text) {
         try {
             final IdRecipient recipient = IdRecipient.create(recipientId);
             final NotificationType notificationType = NotificationType.REGULAR;
