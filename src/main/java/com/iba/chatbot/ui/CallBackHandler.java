@@ -1,20 +1,8 @@
 package com.iba.chatbot.ui;
 
-import static com.github.messenger4j.Messenger.CHALLENGE_REQUEST_PARAM_NAME;
-import static com.github.messenger4j.Messenger.MODE_REQUEST_PARAM_NAME;
-import static com.github.messenger4j.Messenger.SIGNATURE_HEADER_NAME;
-import static com.github.messenger4j.Messenger.VERIFY_TOKEN_REQUEST_PARAM_NAME;
-import static com.github.messenger4j.send.message.richmedia.RichMediaAsset.Type.AUDIO;
-import static com.github.messenger4j.send.message.richmedia.RichMediaAsset.Type.FILE;
-import static com.github.messenger4j.send.message.richmedia.RichMediaAsset.Type.IMAGE;
-import static com.github.messenger4j.send.message.richmedia.RichMediaAsset.Type.VIDEO;
-import static java.util.Optional.empty;
-import static java.util.Optional.of;
-
 import com.github.messenger4j.Messenger;
 import com.github.messenger4j.common.SupportedLocale;
 import com.github.messenger4j.common.WebviewHeightRatio;
-import com.github.messenger4j.common.WebviewShareButtonState;
 import com.github.messenger4j.exception.MessengerApiException;
 import com.github.messenger4j.exception.MessengerIOException;
 import com.github.messenger4j.exception.MessengerVerificationException;
@@ -24,9 +12,7 @@ import com.github.messenger4j.messengerprofile.greeting.Greeting;
 import com.github.messenger4j.messengerprofile.greeting.LocalizedGreeting;
 import com.github.messenger4j.messengerprofile.persistentmenu.LocalizedPersistentMenu;
 import com.github.messenger4j.messengerprofile.persistentmenu.PersistentMenu;
-import com.github.messenger4j.messengerprofile.persistentmenu.action.NestedCallToAction;
 import com.github.messenger4j.messengerprofile.persistentmenu.action.PostbackCallToAction;
-import com.github.messenger4j.messengerprofile.persistentmenu.action.UrlCallToAction;
 import com.github.messenger4j.send.MessagePayload;
 import com.github.messenger4j.send.MessagingType;
 import com.github.messenger4j.send.NotificationType;
@@ -42,12 +28,7 @@ import com.github.messenger4j.send.message.template.ButtonTemplate;
 import com.github.messenger4j.send.message.template.GenericTemplate;
 import com.github.messenger4j.send.message.template.ListTemplate;
 import com.github.messenger4j.send.message.template.ReceiptTemplate;
-import com.github.messenger4j.send.message.template.button.Button;
-import com.github.messenger4j.send.message.template.button.CallButton;
-import com.github.messenger4j.send.message.template.button.LogInButton;
-import com.github.messenger4j.send.message.template.button.LogOutButton;
-import com.github.messenger4j.send.message.template.button.PostbackButton;
-import com.github.messenger4j.send.message.template.button.UrlButton;
+import com.github.messenger4j.send.message.template.button.*;
 import com.github.messenger4j.send.message.template.common.Element;
 import com.github.messenger4j.send.message.template.receipt.Address;
 import com.github.messenger4j.send.message.template.receipt.Adjustment;
@@ -57,35 +38,27 @@ import com.github.messenger4j.send.recipient.IdRecipient;
 import com.github.messenger4j.send.senderaction.SenderAction;
 import com.github.messenger4j.userprofile.UserProfile;
 import com.github.messenger4j.webhook.Event;
-import com.github.messenger4j.webhook.event.AccountLinkingEvent;
-import com.github.messenger4j.webhook.event.AttachmentMessageEvent;
-import com.github.messenger4j.webhook.event.MessageDeliveredEvent;
-import com.github.messenger4j.webhook.event.MessageEchoEvent;
-import com.github.messenger4j.webhook.event.MessageReadEvent;
-import com.github.messenger4j.webhook.event.OptInEvent;
-import com.github.messenger4j.webhook.event.PostbackEvent;
-import com.github.messenger4j.webhook.event.QuickReplyMessageEvent;
-import com.github.messenger4j.webhook.event.TextMessageEvent;
+import com.github.messenger4j.webhook.event.*;
 import com.github.messenger4j.webhook.event.attachment.Attachment;
 import com.github.messenger4j.webhook.event.attachment.LocationAttachment;
 import com.github.messenger4j.webhook.event.attachment.RichMediaAttachment;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.time.Instant;
-import java.util.*;
-
 import com.iba.chatbot.ui.session.UserSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.time.Instant;
+import java.util.*;
+
+import static com.github.messenger4j.Messenger.*;
+import static com.github.messenger4j.send.message.richmedia.RichMediaAsset.Type.*;
+import static java.util.Optional.empty;
+import static java.util.Optional.of;
 
 @RestController
 @RequestMapping("/callback")
@@ -164,14 +137,28 @@ public class CallBackHandler {
                     }
                 }
                 if (event.isTextMessageEvent()) {
-                    handleTextMessageEvent(event.asTextMessageEvent());
+                    final String messageId = event.asTextMessageEvent().messageId();
+                    final String messageText = event.asTextMessageEvent().text();
+                    final String senderId = event.asTextMessageEvent().senderId();
+                    //final Instant timestamp = event.asTextMessageEvent().timestamp().toString();
+                    handleTextMessageEvent(messageId, messageText, senderId, null);
+
+                } else if( event.isPostbackEvent()) {
+                    logger.debug("Handling PostbackEvent");
+                    final String messageText = event.asPostbackEvent().payload().orElse("empty payload");
+                    logger.debug("messageText: {}", messageText);
+                    final String senderId = event.senderId();
+                    logger.debug("senderId: {}", senderId);
+
+                    handleTextMessageEvent(null, messageText, senderId, null);
                 }/* else if (event.isAttachmentMessageEvent()) {
                     handleAttachmentMessageEvent(event.asAttachmentMessageEvent());
                 } else if (event.isQuickReplyMessageEvent()) {
                     handleQuickReplyMessageEvent(event.asQuickReplyMessageEvent());
-                } */else if (event.isPostbackEvent()) {
+                } */
+                /*else if (event.isPostbackEvent()) {
                     handlePostbackEvent(event.asPostbackEvent());
-                } /* else if (event.isAccountLinkingEvent()) {
+                } *//* else if (event.isAccountLinkingEvent()) {
                     handleAccountLinkingEvent(event.asAccountLinkingEvent());
                 } else if (event.isOptInEvent()) {
                     handleOptInEvent(event.asOptInEvent());
@@ -203,22 +190,19 @@ public class CallBackHandler {
         }*/
     }
 
-    private void handleTextMessageEvent(TextMessageEvent event) {
-        logger.debug("Received TextMessageEvent: {}", event);
+    private void handleTextMessageEvent(String messageId, String messageText, String senderId, String timestamp) {
+       /* logger.debug("Received TextMessageEvent: {}", event);*/
 
-        final String messageId = event.messageId();
+ /*       final String messageId = event.messageId();
         final String messageText = event.text();
         final String senderId = event.senderId();
-        final Instant timestamp = event.timestamp();
+        final Instant timestamp = event.timestamp();*/
 
         logger.info("Received message '{}' with text '{}' from user '{}' at '{}'", messageId, messageText, senderId, timestamp);
         try {
-            if (userSessionMaps.get(senderId) == null ) {
-                switch (messageText) {
-                    case "Menu":
-                        sendUserMenu(senderId);
-                        break;
-
+            if (userSessionMaps.get(senderId) == null ||
+                    (userSessionMaps.get(senderId).getStep().equals("menu_item") && messageText.equals("Menu"))) {
+               sendUserMenu(senderId);
                     /*
                 case "user":
                     sendUserDetails(senderId);
@@ -281,7 +265,7 @@ public class CallBackHandler {
                 */
                /* default:
                     sendTextMessage(senderId, messageText);*/
-                }
+
             } else if ("menu_item".equals(userSessionMaps.get(senderId).getStep())) {
                 switch (messageText) {
                     case "First working day":
@@ -300,9 +284,26 @@ public class CallBackHandler {
                         sendTextMessageWithType(senderId, "What instructions do you need ? examples 'Wi-fi'", "instructions_type");
                         break;
                 }
-            } else if ("review_abuse".equals(userSessionMaps.get(senderId).getStep())) {
+            } else if("review".equals(userSessionMaps.get(senderId).getStep())) {
+                switch (messageText) {
+                    case "useful":
+                        userSessionMaps.get(senderId).setStep("menu_item");
+                        logger.info("" );
+                        sendEndMessage(senderId, "great thanks a lot");
+                        break;
+                    case "useless":
+                        userSessionMaps.get(senderId).setStep("review_abuse");
+                        sendTextMessage(senderId, "please, type a message to me");
+                        break;
+                }
+            }  else if ("review_abuse".equals(userSessionMaps.get(senderId).getStep())) {
+                logger.info("" + messageText);
+                userSessionMaps.get(senderId).setStep("menu_item");
                 sendAbuseMessage(senderId, "Your abuse is received.");
             }
+
+
+
         } catch (MessengerApiException | MessengerIOException /*| MalformedURLException */e) {
             handleSendException(e);
         }
@@ -512,16 +513,6 @@ public class CallBackHandler {
         final Instant timestamp = event.timestamp();
         logger.debug("timestamp: {}", timestamp);
         logger.info("Received postback for user '{}' and page '{}' with payload '{}' at '{}'", senderId, senderId, payload, timestamp);
-        if("review".equals(userSessionMaps.get(senderId).getStep())) {
-            switch (payload) {
-                case "useful":
-                    sendEndMessage(senderId, "great thanks a lot");
-                    break;
-                case "useless":
-                    sendTextMessage(senderId, "please, type a message to me");
-                    break;
-            }
-        }
 
 
 
@@ -658,7 +649,7 @@ public class CallBackHandler {
 
     private void  sendEndMessage(String recipientId, String text) {
         try {
-            userSessionMaps.get(recipientId).setStep("0");
+
             final IdRecipient recipient = IdRecipient.create(recipientId);
             final NotificationType notificationType = NotificationType.REGULAR;
             final String metadata = "DEVELOPER_DEFINED_METADATA";
@@ -674,7 +665,6 @@ public class CallBackHandler {
 
     private void  sendAbuseMessage(String recipientId, String text) {
         try {
-            userSessionMaps.get(recipientId).setStep("0");
             final IdRecipient recipient = IdRecipient.create(recipientId);
             final NotificationType notificationType = NotificationType.REGULAR;
             final String metadata = "DEVELOPER_DEFINED_METADATA";
