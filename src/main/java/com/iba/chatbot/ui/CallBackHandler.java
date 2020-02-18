@@ -96,7 +96,7 @@ public class CallBackHandler {
     private void initMenu() throws MessengerApiException, MessengerIOException {
         final PostbackCallToAction callToMenu =
                 PostbackCallToAction.create(
-                        "Menu", "ACTION_MENU");
+                        "Menu", "menu_item");
         final PostbackCallToAction callToActionHelp =
                 PostbackCallToAction.create(
                         "Help", "ACTION_HELP");
@@ -123,7 +123,6 @@ public class CallBackHandler {
     @RequestMapping(method = RequestMethod.POST)
     public ResponseEntity<Void> handleCallback(@RequestBody final String payload, @RequestHeader(SIGNATURE_HEADER_NAME) final String signature) {
         logger.debug("Received Messenger Platform callback - payload: {} | signature: {}", payload, signature);
-
         try
         {
             this.messenger.onReceiveEvents(payload, of(signature), event -> {
@@ -151,14 +150,14 @@ public class CallBackHandler {
                     logger.debug("senderId: {}", senderId);
 
                     handleTextMessageEvent(null, messageText, senderId, null);
-                }/* else if (event.isAttachmentMessageEvent()) {
+                } else if (event.isAttachmentMessageEvent()) {
                     handleAttachmentMessageEvent(event.asAttachmentMessageEvent());
                 } else if (event.isQuickReplyMessageEvent()) {
                     handleQuickReplyMessageEvent(event.asQuickReplyMessageEvent());
-                } */
-                /*else if (event.isPostbackEvent()) {
+                }
+               /* else if (event.isPostbackEvent()) {
                     handlePostbackEvent(event.asPostbackEvent());
-                } *//* else if (event.isAccountLinkingEvent()) {
+                } */ else if (event.isAccountLinkingEvent()) {
                     handleAccountLinkingEvent(event.asAccountLinkingEvent());
                 } else if (event.isOptInEvent()) {
                     handleOptInEvent(event.asOptInEvent());
@@ -168,7 +167,7 @@ public class CallBackHandler {
                     handleMessageDeliveredEvent(event.asMessageDeliveredEvent());
                 } else if (event.isMessageReadEvent()) {
                     handleMessageReadEvent(event.asMessageReadEvent());
-                }*/ else {
+                } else {
                     handleFallbackEvent(event);
                 }
             });
@@ -191,7 +190,7 @@ public class CallBackHandler {
     }
 
     private void handleTextMessageEvent(String messageId, String messageText, String senderId, String timestamp) {
-       /* logger.debug("Received TextMessageEvent: {}", event);*/
+        logger.debug("Received TextMessageEvent: {}", messageText);
 
  /*       final String messageId = event.messageId();
         final String messageText = event.text();
@@ -269,21 +268,36 @@ public class CallBackHandler {
             } else if ("menu_item".equals(userSessionMaps.get(senderId).getStep())) {
                 switch (messageText) {
                     case "First working day":
-                        sendTextMessageWithType(senderId, "Text For First Working Day", "first_working_day_type");
+                        sendTextMessageWithType(senderId, "Text For First Working Day", "first_working_day_type", "review");
+                        break;
+                    case "Health care":
+                        sendTextMessageWithType(senderId, "list of hospitals, medical center, insurance", "health_care_type", "review");
                         break;
                     case "Sport":
-                        sendTextMessageWithType(senderId, "list of building and season ticket", "sport_type");
+                        sendTextMessageWithType(senderId, "list of building and season ticket", "sport_type", "review");
                         break;
                     case "Facilities":
-                        sendTextMessageWithType(senderId, "who is responsible for changing tables, chairs and so on", "facilites_type");
+                        sendTextMessageWithType(senderId, "who is responsible for changing tables, chairs and so on", "facilites_type", "review");
                         break;
                     case "Application":
-                        sendTextMessageWithType(senderId, "Please, Write down a organization for you application ", "application_type");
+                        sendTextMessageWithType(senderId, "Please, Write down a organization for you application ", "application_type", "application_term");
                         break;
                     case "Instructions":
-                        sendTextMessageWithType(senderId, "What instructions do you need ? examples 'Wi-fi'", "instructions_type");
+                        sendTextMessageWithType(senderId, "What instructions do you need ? examples 'Wi-fi'", "instructions_type", "review");
                         break;
                 }
+            } else if("application_term".equals(userSessionMaps.get(senderId).getStep())) {
+                userSessionMaps.get(senderId).setStep("application_organization");
+                logger.debug("Received TextMessageEvent: {}", messageText);
+                sendTextMessage(senderId, "please, type a number of month to me");
+            } else if("application_organization".equals(userSessionMaps.get(senderId).getStep())) {
+                userSessionMaps.get(senderId).setStep("application_organization_end");
+                logger.debug("Received TextMessageEvent: {}", messageText);
+                sendTextMessage(senderId, "What organizations need to specify?");
+            } else if("application_organization_end".equals(userSessionMaps.get(senderId).getStep())) {
+                userSessionMaps.get(senderId).setStep("menu_item");//
+                logger.debug("Received TextMessageEvent: {}", messageText);
+                sendTextMessage(senderId, "thanks a lot we've received it.");
             } else if("review".equals(userSessionMaps.get(senderId).getStep())) {
                 switch (messageText) {
                     case "useful":
@@ -617,7 +631,7 @@ public class CallBackHandler {
         logger.info("Received unsupported message from user '{}'", senderId);
     }
 
-    private void sendTextMessageWithType(String recipientId, String text, String type) {
+    private void sendTextMessageWithType(String recipientId, String text, String type, String step) {
         try {
             final IdRecipient recipient = IdRecipient.create(recipientId);
             final NotificationType notificationType = NotificationType.REGULAR;
@@ -629,19 +643,20 @@ public class CallBackHandler {
             this.messenger.send(messagePayload);
 
             userSessionMaps.get(recipientId).setType(type);
-            userSessionMaps.get(recipientId).setStep("review");
+            userSessionMaps.get(recipientId).setStep(step);
+            if("review".equals(step)) {
+                final PostbackButton buttonB1 = PostbackButton.create("useful", "useful");
+                final PostbackButton buttonB2 = PostbackButton.create("useless", "useless");
 
-            final PostbackButton buttonB1 = PostbackButton.create("useful", "useful");
-            final PostbackButton buttonB2 = PostbackButton.create("useless", "useless");
+                final List<Button> buttons = Arrays.asList(buttonB1, buttonB2);
+                final ButtonTemplate buttonTemplate =
+                        ButtonTemplate.create("Is this tip usefull or useless?", buttons);
 
-            final List<Button> buttons = Arrays.asList(buttonB1, buttonB2);
-            final ButtonTemplate buttonTemplate =
-                    ButtonTemplate.create("Is this tip usefull or useless?", buttons);
-
-            final TemplateMessage templateMessage = TemplateMessage.create(buttonTemplate);
-            final MessagePayload payload1 =
-                    MessagePayload.create(recipientId, MessagingType.RESPONSE, templateMessage);
-            messenger.send(payload1);
+                final TemplateMessage templateMessage = TemplateMessage.create(buttonTemplate);
+                final MessagePayload payload1 =
+                        MessagePayload.create(recipientId, MessagingType.RESPONSE, templateMessage);
+                messenger.send(payload1);
+            }
         } catch (MessengerApiException | MessengerIOException e) {
             handleSendException(e);
         }
