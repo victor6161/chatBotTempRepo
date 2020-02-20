@@ -1,38 +1,23 @@
 package com.iba.chatbot.ui.session;
 
 import com.github.messenger4j.userprofile.UserProfile;
+import com.iba.chatbot.ui.flow.MessageBotEntity;
+import com.iba.chatbot.ui.fsm.StateMachine;
+
+import java.util.List;
 
 public class UserSession {
-    private String step;
-    private String type;
+
+/*    private Iterable<MessageBotEntity> steps;
+    private MessageBotEntity currentState;*/
     private boolean isMenuUpdateNeeded;
+    private UserProfile userProfile;
+    private StateMachine stateMachine;
 
-    public UserSession() {
-    }
-
-    public UserSession(String step, UserProfile userProfile) {
-        this.step = step;
-        this.userProfile = userProfile;
-    }
-
-    public UserSession(UserProfile userProfile) {
-        this.userProfile = userProfile;
-    }
-
-    public UserSession(String type, boolean isMenuUpdateNeeded, UserProfile userProfile) {
-        this.type = type;
+    public UserSession(boolean isMenuUpdateNeeded, UserProfile userProfile, StateMachine stateMachine) {
+        this.stateMachine = stateMachine;
         this.isMenuUpdateNeeded = isMenuUpdateNeeded;
         this.userProfile = userProfile;
-    }
-
-    private UserProfile userProfile;
-
-    public String getType() {
-        return type;
-    }
-
-    public void setType(String type) {
-        this.type = type;
     }
 
     public boolean isMenuUpdateNeeded() {
@@ -51,11 +36,19 @@ public class UserSession {
         this.userProfile = userProfile;
     }
 
-    public String getStep() {
-        return step;
+    public StateMachine getStateMachine() {
+        return stateMachine;
     }
 
-    public void setStep(String step) {
-        this.step = step;
+    public void setStateMachine(StateMachine stateMachine) {
+        this.stateMachine = stateMachine;
     }
+
+  /*  public List<MessageBotEntity> getSteps() {
+        return steps;
+    }
+
+    public void setSteps(List<MessageBotEntity> steps) {
+        this.steps = steps;
+    }*/
 }

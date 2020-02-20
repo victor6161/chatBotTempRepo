@@ -1,21 +1,23 @@
 package com.iba.chatbot.ui.flow;
 
-public abstract class BasicFlow {
-    private FlowTypeEnum flowTypeEnum;
+import java.util.List;
+import java.util.Queue;
 
-    public void startFlow() {
+public class BasicFlow {
+    private Iterable<FlowTypeEnum> flowTypeEnums;
+    public void traverseForward() {
+        flowTypeEnums.iterator().next();
+    }
+
+    private void validation() {
 
     }
 
-    public void endFlow() {
-
+    public Iterable<FlowTypeEnum> getFlowTypeEnums() {
+        return flowTypeEnums;
     }
 
-    public FlowTypeEnum getFlowTypeEnum() {
-        return flowTypeEnum;
-    }
-
-    public void setFlowTypeEnum(FlowTypeEnum flowTypeEnum) {
-        this.flowTypeEnum = flowTypeEnum;
+    public void setFlowTypeEnums(List<FlowTypeEnum> flowTypeEnums) {
+        this.flowTypeEnums = flowTypeEnums;
     }
 }

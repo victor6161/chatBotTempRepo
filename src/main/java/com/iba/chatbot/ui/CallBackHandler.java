@@ -42,6 +42,7 @@ import com.github.messenger4j.webhook.event.*;
 import com.github.messenger4j.webhook.event.attachment.Attachment;
 import com.github.messenger4j.webhook.event.attachment.LocationAttachment;
 import com.github.messenger4j.webhook.event.attachment.RichMediaAttachment;
+import com.iba.chatbot.ui.fsm.*;
 import com.iba.chatbot.ui.session.UserSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,6 +73,11 @@ public class CallBackHandler {
     private final Messenger messenger;
 
     private Map<String, UserSession> userSessionMaps = new WeakHashMap<>();
+
+    private List<Condition> conditions = Arrays.asList(new Condition("MENU"),new Condition("FIRST_WORKING_DAY"), new Condition("REVIEW_USELESS"),
+            new Condition("REVIEW_USELESS"), new Condition("REVIEW_ABUSE"));
+
+
     @Autowired
     public CallBackHandler(final Messenger messenger) {
         this.messenger = messenger;
@@ -126,7 +132,7 @@ public class CallBackHandler {
         try
         {
             this.messenger.onReceiveEvents(payload, of(signature), event -> {
-                if (userSessionMaps.get(event.senderId()) != null && userSessionMaps.get(event.senderId()).isMenuUpdateNeeded()) {
+              /*  if (userSessionMaps.get(event.senderId()) != null && userSessionMaps.get(event.senderId()).isMenuUpdateNeeded()) {
                     try {
                         initMenu();
                     } catch (MessengerApiException e) {
@@ -134,7 +140,7 @@ public class CallBackHandler {
                     } catch (MessengerIOException e) {
                         logger.warn("Processing of callback payload failed: {}", e.getMessage());
                     }
-                }
+                }*/
                 if (event.isTextMessageEvent()) {
                     final String messageId = event.asTextMessageEvent().messageId();
                     final String messageText = event.asTextMessageEvent().text();
@@ -170,6 +176,7 @@ public class CallBackHandler {
                 } else {
                     handleFallbackEvent(event);
                 }
+
             });
             logger.debug("Processed callback payload successfully");
             return ResponseEntity.status(HttpStatus.OK).build();
@@ -196,12 +203,38 @@ public class CallBackHandler {
         final String messageText = event.text();
         final String senderId = event.senderId();
         final Instant timestamp = event.timestamp();*/
+        UserSession userSession = userSessionMaps.get(senderId);
 
-        logger.info("Received message '{}' with text '{}' from user '{}' at '{}'", messageId, messageText, senderId, timestamp);
-        try {
-            if (userSessionMaps.get(senderId) == null ||
-                    (userSessionMaps.get(senderId).getStep().equals("menu_item") && messageText.equals("Menu"))) {
-               sendUserMenu(senderId);
+        if (userSession != null) {
+            userSession = userSessionMaps.get(senderId);
+            if (TypeNextActionEnum.COMMAND == userSession.getStateMachine().getCurrent().getTypeNextActionEnum()) {
+               Condition conditionsFromUser = null;
+
+                for (Condition condition : conditions) {
+                    if(condition.getCondition().equals(messageText)) {
+                        conditionsFromUser = condition;
+                        break;
+                    }
+                }
+                if (conditionsFromUser != null) {
+                    userSession.getStateMachine().apply(conditionsFromUser);
+                }
+                sendTextMessage(senderId,  userSession.getStateMachine().getCurrent().getText());
+            } else {
+                // TEXT handling
+            }
+        } else {
+            setUpUserSession(senderId);
+            sendUserMenu(senderId);
+        }
+
+
+
+
+     /*   logger.info("Received message '{}' with text '{}' from user '{}' at '{}'", messageId, messageText, senderId, timestamp);
+        try {*/
+
+
                     /*
                 case "user":
                     sendUserDetails(senderId);
@@ -265,28 +298,58 @@ public class CallBackHandler {
                /* default:
                     sendTextMessage(senderId, messageText);*/
 
-            } else if ("menu_item".equals(userSessionMaps.get(senderId).getStep())) {
+   /*         } else if (TypeStepEnum.MENU.equals(userSessionMaps.get(senderId).getCurrentState().getTypeStepEnum())) {
                 switch (messageText) {
                     case "First working day":
-                        sendTextMessageWithType(senderId, "Text For First Working Day", "first_working_day_type", "review");
-                        break;
-                    case "Health care":
+                        UserSession userSession = userSessionMaps.get(senderId);
+                        //userSession.setSteps(FlowStorage.FIRST_DAY_FLOWS);
+                        userSession.setCurrentState(FlowStorage.FIRST_DAY_FLOWS.get(1));
+                        sendTextMessage(senderId, FlowStorage.FIRST_DAY_FLOWS.get(0).getMessage());
+                        break;*/
+                   /* case "Health care":
+                        InfoFlow healthCareFlow = new InfoFlow();
+                        List<TypeStepEnum> healthCareFlowTypeEnums = new ArrayList<>();
+                        healthCareFlowTypeEnums.add(TypeStepEnum.INFO);
+                        healthCareFlowTypeEnums.add(TypeStepEnum.REVIEW);
+                        healthCareFlow.setFlowTypeEnums(healthCareFlowTypeEnums);
                         sendTextMessageWithType(senderId, "list of hospitals, medical center, insurance", "health_care_type", "review");
-                        break;
-                    case "Sport":
+                        break;*/
+                   /* case "Sport":
                         sendTextMessageWithType(senderId, "list of building and season ticket", "sport_type", "review");
                         break;
                     case "Facilities":
                         sendTextMessageWithType(senderId, "who is responsible for changing tables, chairs and so on", "facilites_type", "review");
-                        break;
-                    case "Application":
+                        break;*/
+                /*    case "Application":
+                        InfoFlow applicationFlow = new InfoFlow();
+                        List<TypeStepEnum> applicationFlowTypeEnums = new ArrayList<>();
+                        applicationFlowTypeEnums.add(TypeStepEnum.INFO);
+                        applicationFlowTypeEnums.add(TypeStepEnum.REVIEW);
+                        applicationFlow.setFlowTypeEnums(applicationFlowTypeEnums);
                         sendTextMessageWithType(senderId, "Please, Write down a organization for you application ", "application_type", "application_term");
-                        break;
-                    case "Instructions":
-                        sendTextMessageWithType(senderId, "What instructions do you need ? examples 'Wi-fi'", "instructions_type", "review");
+                        break;*/
+        /*            case "Instructions":
+                        //sendTextMessageWithType(senderId, "What instructions do you need ? examples 'Wi-fi'", "instructions_type", "review");
                         break;
                 }
-            } else if("application_term".equals(userSessionMaps.get(senderId).getStep())) {
+            } else {
+
+                if(TypeStepEnum.REVIEW.equals(userSessionMaps.get(senderId).getCurrentState().getTypeStepEnum())) {
+                    userSessionMaps.get(senderId).setCurrentState(FlowStorage.FIRST_DAY_FLOWS.get(2));
+                    createReviewButtons(senderId);
+                } else if (TypeStepEnum.REVIEW_RECEIVE.equals(userSessionMaps.get(senderId).getCurrentState().getTypeStepEnum())) {
+                    if("useless".equals(messageText)) {
+                        userSessionMaps.get(senderId).setCurrentState(new MessageBotEntity(TypeStepEnum.ABUSE,""));
+                        sendTextMessage(senderId, FlowStorage.FIRST_DAY_FLOWS.get(0).getMessage());
+                    } else {
+                        userSessionMaps.get(senderId).setCurrentState(FlowStorage.FIRST_DAY_FLOWS.get(2));
+                        sendTextMessage(senderId, FlowStorage.FIRST_DAY_FLOWS.get(0).getMessage());
+                    }
+                }
+            }*/
+
+
+        /*    else if("application_term".equals(userSessionMaps.get(senderId).getStep())) {
                 userSessionMaps.get(senderId).setStep("application_organization");
                 logger.debug("Received TextMessageEvent: {}", messageText);
                 sendTextMessage(senderId, "please, type a number of month to me");
@@ -315,23 +378,81 @@ public class CallBackHandler {
                 userSessionMaps.get(senderId).setStep("menu_item");
                 sendAbuseMessage(senderId, "Your abuse is received.");
             }
+*/
 
 
-
-        } catch (MessengerApiException | MessengerIOException /*| MalformedURLException */e) {
+    /*    } catch (MessengerApiException | MessengerIOException *//*| MalformedURLException *//*e) {
             handleSendException(e);
-        }
+        }*/
     }
 
-    private void sendUserMenu(String recipientId) throws MessengerApiException, MessengerIOException {
-        //final UserProfile userProfile = this.messenger.queryUserProfile(recipientId);
-        final UserProfile userProfile = this.messenger.queryUserProfile(recipientId);
-        userSessionMaps.put(recipientId, new UserSession("menu_item", userProfile));
+    private void setUpUserSession(String senderId) {
+        UserProfile userProfile = null;
+        try {
+            userProfile = this.messenger.queryUserProfile(senderId);
+        } catch (MessengerApiException e) {
+            logger.error("error getting user data", e.getMessage());
+        } catch (MessengerIOException e) {
+            logger.error("error getting user data", e.getMessage());
+        }
+        StateMachine stateMachine = createStateMachine();
+        userSessionMaps.put(senderId, new UserSession(true, userProfile, stateMachine));
+    }
+
+    private StateMachine createStateMachine() {
+        State menu = new State("MENU", "It's menu of flow chatbot", TypeNextActionEnum.COMMAND);
+        State firstWorkingDay = new State("FIRST_WORKING_DAY", "It's text for first working day", TypeNextActionEnum.COMMAND);
+        State reviewUseless = new State("REVIEW_USELESS", "Please, type messages to me", TypeNextActionEnum.TEXT);
+        State reviewAbuse = new State("REVIEW_ABUSE", "Your abuse is received.", TypeNextActionEnum.COMMAND);
+        State reviewUseful = new State("REVIEW_USEFUL", "Great! Thanks a lot!", TypeNextActionEnum.COMMAND);
+
+        Condition firstWorkingDayCondition = new Condition("FIRST_WORKING_DAY");
+        Condition uselessCondition = new Condition("REVIEW_USELESS");
+        Condition abuseCondition = new Condition("REVIEW_ABUSE");
+        Condition usefulCondition = new Condition("REVIEW_USEFUL");
+
+        Set<Condition> firstWorkingDayConditions = new HashSet<>();
+        firstWorkingDayConditions.add(firstWorkingDayCondition);
+
+        Set<Condition> uselessConditions = new HashSet<>();
+        uselessConditions.add(uselessCondition);
+
+        Set<Condition> usefulConditions = new HashSet<>();
+        usefulConditions.add(usefulCondition);
+
+        Set<Condition> abuseConditions = new HashSet<>();
+        abuseConditions.add(abuseCondition);
+
+        List<Transition> transitions = new ArrayList<>();
+        transitions.add(new Transition(menu, firstWorkingDayConditions, firstWorkingDay));
+        transitions.add(new Transition(firstWorkingDay, uselessConditions, reviewUseless));
+        transitions.add(new Transition(firstWorkingDay, usefulConditions, reviewUseful));
+        transitions.add(new Transition(reviewUseless, abuseConditions, reviewAbuse));
+
+        StateMachine stateMachine = new StateMachine(menu, transitions);
+        return stateMachine;
+    }
+
+    private void createReviewButtons(String senderId) throws MessengerApiException, MessengerIOException {
+        final PostbackButton buttonB1 = PostbackButton.create("useful", "useful");
+        final PostbackButton buttonB2 = PostbackButton.create("useless", "useless");
+
+        final List<Button> buttons = Arrays.asList(buttonB1, buttonB2);
+        final ButtonTemplate buttonTemplate =
+                ButtonTemplate.create("Is this tip usefull or useless?", buttons);
+
+        final TemplateMessage templateMessage = TemplateMessage.create(buttonTemplate);
+        final MessagePayload payload1 =
+                MessagePayload.create(senderId, MessagingType.RESPONSE, templateMessage);
+        messenger.send(payload1);
+    }
+
+    private void sendUserMenu(String recipientId) {
         sendTextMessage(recipientId, "It's menu of flow chatbot. Please enter what help do you need:\n " +
                 "'First working day'\n " +
                 "'Health care'\n " +
-                "'Sport'\n " +
-                "'Facilities'\n" +
+              /*  "'Sport'\n " +
+                "'Facilities'\n" +*/
                 "'Application'\n +" +
                 "'Instructions'\n");
         logger.info("Chat bot menu has sent");
@@ -631,7 +752,7 @@ public class CallBackHandler {
         logger.info("Received unsupported message from user '{}'", senderId);
     }
 
-    private void sendTextMessageWithType(String recipientId, String text, String type, String step) {
+/*    private void sendTextMessageWithType(String recipientId, String text, String type, String step) {
         try {
             final IdRecipient recipient = IdRecipient.create(recipientId);
             final NotificationType notificationType = NotificationType.REGULAR;
@@ -660,7 +781,7 @@ public class CallBackHandler {
         } catch (MessengerApiException | MessengerIOException e) {
             handleSendException(e);
         }
-    }
+    }*/
 
     private void  sendEndMessage(String recipientId, String text) {
         try {
@@ -694,7 +815,7 @@ public class CallBackHandler {
     }
 
 
-    private void  sendTextMessage(String recipientId, String text) {
+    private void sendTextMessage(String recipientId, String text) {
         try {
             final IdRecipient recipient = IdRecipient.create(recipientId);
             final NotificationType notificationType = NotificationType.REGULAR;
