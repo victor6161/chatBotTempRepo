@@ -74,7 +74,7 @@ public class CallBackHandler {
 
     private Map<String, UserSession> userSessionMaps = new WeakHashMap<>();
 
-    private List<Condition> conditions = Arrays.asList(new Condition("MENU"),new Condition("FIRST_WORKING_DAY"), new Condition("REVIEW_USELESS"),
+    private List<Condition> conditions = Arrays.asList(new Condition("Menu"),new Condition("FIRST_WORKING_DAY"), new Condition("REVIEW_USELESS"),
             new Condition("REVIEW_USELESS"), new Condition("REVIEW_ABUSE"));
 
 
@@ -156,14 +156,14 @@ public class CallBackHandler {
                     logger.debug("senderId: {}", senderId);
 
                     handleTextMessageEvent(null, messageText, senderId, null);
-                } else if (event.isAttachmentMessageEvent()) {
+                } /*else if (event.isAttachmentMessageEvent()) {
                     handleAttachmentMessageEvent(event.asAttachmentMessageEvent());
                 } else if (event.isQuickReplyMessageEvent()) {
                     handleQuickReplyMessageEvent(event.asQuickReplyMessageEvent());
                 }
-               /* else if (event.isPostbackEvent()) {
+               *//* else if (event.isPostbackEvent()) {
                     handlePostbackEvent(event.asPostbackEvent());
-                } */ else if (event.isAccountLinkingEvent()) {
+                } *//* else if (event.isAccountLinkingEvent()) {
                     handleAccountLinkingEvent(event.asAccountLinkingEvent());
                 } else if (event.isOptInEvent()) {
                     handleOptInEvent(event.asOptInEvent());
@@ -175,7 +175,7 @@ public class CallBackHandler {
                     handleMessageReadEvent(event.asMessageReadEvent());
                 } else {
                     handleFallbackEvent(event);
-                }
+                }*/
 
             });
             logger.debug("Processed callback payload successfully");
@@ -196,20 +196,13 @@ public class CallBackHandler {
         }*/
     }
 
-    private void handleTextMessageEvent(String messageId, String messageText, String senderId, String timestamp) {
-        logger.debug("Received TextMessageEvent: {}", messageText);
-
- /*       final String messageId = event.messageId();
-        final String messageText = event.text();
-        final String senderId = event.senderId();
-        final Instant timestamp = event.timestamp();*/
+    private synchronized void handleTextMessageEvent(String messageId, String messageText, String senderId, String timestamp) {
+        logger.info("Received TextMessageEvent: {}", messageText);
         UserSession userSession = userSessionMaps.get(senderId);
-
         if (userSession != null) {
             userSession = userSessionMaps.get(senderId);
             if (TypeNextActionEnum.COMMAND == userSession.getStateMachine().getCurrent().getTypeNextActionEnum()) {
                Condition conditionsFromUser = null;
-
                 for (Condition condition : conditions) {
                     if(condition.getCondition().equals(messageText)) {
                         conditionsFromUser = condition;
@@ -222,6 +215,8 @@ public class CallBackHandler {
                 sendTextMessage(senderId,  userSession.getStateMachine().getCurrent().getText());
             } else {
                 // TEXT handling
+                userSession.getStateMachine().apply(null);
+                sendTextMessage(senderId,  userSession.getStateMachine().getCurrent().getText());
             }
         } else {
             setUpUserSession(senderId);
@@ -400,7 +395,13 @@ public class CallBackHandler {
     }
 
     private StateMachine createStateMachine() {
-        State menu = new State("MENU", "It's menu of flow chatbot", TypeNextActionEnum.COMMAND);
+        State menu = new State("MENU", "It's menu of flow chatbot. Please enter what help do you need:\n" +
+                "'First working day'\n" +
+                "'Health care'\n" +
+              /*  "'Sport'\n" +
+                "'Facilities'" +*/
+                "'Application'\n" +
+                "'Instructions'\n", TypeNextActionEnum.COMMAND);
         State firstWorkingDay = new State("FIRST_WORKING_DAY", "It's text for first working day", TypeNextActionEnum.COMMAND);
         State reviewUseless = new State("REVIEW_USELESS", "Please, type messages to me", TypeNextActionEnum.TEXT);
         State reviewAbuse = new State("REVIEW_ABUSE", "Your abuse is received.", TypeNextActionEnum.COMMAND);
@@ -410,7 +411,8 @@ public class CallBackHandler {
         Condition uselessCondition = new Condition("REVIEW_USELESS");
         Condition abuseCondition = new Condition("REVIEW_ABUSE");
         Condition usefulCondition = new Condition("REVIEW_USEFUL");
-
+        Condition menuCondition = new Condition("MENU");
+        // There are can be several conditions
         Set<Condition> firstWorkingDayConditions = new HashSet<>();
         firstWorkingDayConditions.add(firstWorkingDayCondition);
 
@@ -423,11 +425,20 @@ public class CallBackHandler {
         Set<Condition> abuseConditions = new HashSet<>();
         abuseConditions.add(abuseCondition);
 
+        Set<Condition> menuConditions = new HashSet<>();
+        menuConditions.add(menuCondition);
+
         List<Transition> transitions = new ArrayList<>();
         transitions.add(new Transition(menu, firstWorkingDayConditions, firstWorkingDay));
+
+        // first working day
         transitions.add(new Transition(firstWorkingDay, uselessConditions, reviewUseless));
         transitions.add(new Transition(firstWorkingDay, usefulConditions, reviewUseful));
-        transitions.add(new Transition(reviewUseless, abuseConditions, reviewAbuse));
+
+        // review
+        transitions.add(new Transition(reviewUseless, null, reviewAbuse));
+        transitions.add(new Transition(reviewAbuse, menuConditions, menu));
+        transitions.add(new Transition(reviewUseful, menuConditions, menu));
 
         StateMachine stateMachine = new StateMachine(menu, transitions);
         return stateMachine;
@@ -453,9 +464,9 @@ public class CallBackHandler {
                 "'Health care'\n " +
               /*  "'Sport'\n " +
                 "'Facilities'\n" +*/
-                "'Application'\n +" +
+                "'Application'\n" +
                 "'Instructions'\n");
-        logger.info("Chat bot menu has sent");
+        logger.info("Chat bot menu has been sent");
     }
 
     private void sendUserDetails(String recipientId) throws MessengerApiException, MessengerIOException {

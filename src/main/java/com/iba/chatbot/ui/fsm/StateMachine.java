@@ -17,7 +17,15 @@ public class StateMachine {
     }
 
     public void apply(Condition conditionParam) {
-        current = getNextState(conditionParam);
+        if(TypeNextActionEnum.COMMAND == current.getTypeNextActionEnum() ) {
+            current = getNextState(conditionParam);
+        } else {
+           for(Transition transition:transitions) {
+               if(transition.getFrom().equals(current)) {
+                   current = transition.getTo();
+               }
+           }
+        }
     }
 
     private State getNextState(Condition conditionParam) {
@@ -25,7 +33,7 @@ public class StateMachine {
             boolean currentStateMatches = transition.getFrom().equals(current);
             boolean conditionsMatch = false;
             for (Condition condition : transition.getConditions()) {
-                if(condition.equals(conditionParam)) {
+                if(condition != null && condition.equals(conditionParam)) {
                     conditionsMatch = true;
                     break;
                 }
