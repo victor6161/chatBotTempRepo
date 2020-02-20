@@ -20,11 +20,12 @@ public class StateMachine {
         if(TypeNextActionEnum.COMMAND == current.getTypeNextActionEnum() ) {
             current = getNextState(conditionParam);
         } else {
-           for(Transition transition:transitions) {
-               if(transition.getFrom().equals(current)) {
-                   current = transition.getTo();
-               }
-           }
+            for (Transition transition : transitions) {
+                if (transition.getFrom().equals(current)) {
+                    current = transition.getTo();
+                    break;
+                }
+            }
         }
     }
 

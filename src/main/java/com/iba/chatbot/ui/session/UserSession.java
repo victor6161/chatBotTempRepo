@@ -1,10 +1,7 @@
 package com.iba.chatbot.ui.session;
 
 import com.github.messenger4j.userprofile.UserProfile;
-import com.iba.chatbot.ui.flow.MessageBotEntity;
 import com.iba.chatbot.ui.fsm.StateMachine;
-
-import java.util.List;
 
 public class UserSession {
 

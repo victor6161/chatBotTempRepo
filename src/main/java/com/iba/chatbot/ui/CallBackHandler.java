@@ -74,7 +74,7 @@ public class CallBackHandler {
 
     private Map<String, UserSession> userSessionMaps = new WeakHashMap<>();
 
-    private List<Condition> conditions = Arrays.asList(new Condition("Menu"),new Condition("FIRST_WORKING_DAY"), new Condition("REVIEW_USELESS"),
+    private List<Condition> conditions = Arrays.asList(new Condition("MENU"),new Condition("FIRST_WORKING_DAY"), new Condition("REVIEW_USELESS"),
             new Condition("REVIEW_USELESS"), new Condition("REVIEW_ABUSE"));
 
 
@@ -412,6 +412,7 @@ public class CallBackHandler {
         Condition abuseCondition = new Condition("REVIEW_ABUSE");
         Condition usefulCondition = new Condition("REVIEW_USEFUL");
         Condition menuCondition = new Condition("MENU");
+        Condition tempCondition = new Condition("TEMP");
         // There are can be several conditions
         Set<Condition> firstWorkingDayConditions = new HashSet<>();
         firstWorkingDayConditions.add(firstWorkingDayCondition);
@@ -428,6 +429,9 @@ public class CallBackHandler {
         Set<Condition> menuConditions = new HashSet<>();
         menuConditions.add(menuCondition);
 
+        Set<Condition> tempConditions = new HashSet<>();
+        tempConditions.add(tempCondition);
+
         List<Transition> transitions = new ArrayList<>();
         transitions.add(new Transition(menu, firstWorkingDayConditions, firstWorkingDay));
 
@@ -436,7 +440,7 @@ public class CallBackHandler {
         transitions.add(new Transition(firstWorkingDay, usefulConditions, reviewUseful));
 
         // review
-        transitions.add(new Transition(reviewUseless, null, reviewAbuse));
+        transitions.add(new Transition(reviewUseless, tempConditions, reviewAbuse));
         transitions.add(new Transition(reviewAbuse, menuConditions, menu));
         transitions.add(new Transition(reviewUseful, menuConditions, menu));
 
